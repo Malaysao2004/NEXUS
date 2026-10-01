@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - Network Simulator</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+    <div th:replace="~{fragments/sidebar :: sidebar(${activePage})}"></div>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <h1 class="page-title">Fault & Traffic Simulator</h1>
+        </header>
+
+        <div class="content-container">
+            <div class="metric-card">
+                <span class="metric-label">Fault Scenarios</span>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;">
+                    Inject realistic failure scenarios into the running network to evaluate how Health & RCA Engines respond.
+                </p>
+                <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+                    <a th:each="sc : ${scenarios}"
+                              th:href="@{/simulator(scenario=${sc})}"
+                       class="btn"
+                              th:classappend="${sc == 'NORMAL' ? 'btn-primary' : 'btn-danger'}"
+                              th:text="${sc}">
+                    </a>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="table-header">
+                    <h2>Manual Device Telemetry Overwrite</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>CPU (%)</th>
+                            <th>Memory (%)</th>
+                            <th>Packet Loss (%)</th>
+                            <th>Latency (ms)</th>
+                            <th>Save</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${report.deviceReports().values()}">
+                            <td><strong th:text="${entry.device.id}"></strong></td>
+                            <td><input type="number" th:id="'cpu-' + ${entry.device.id}" th:value="${entry.metrics.cpuUsage}" style="width: 70px; padding: 4px; border-radius: 4px; background: #0b0f19; color: #fff; border: 1px solid #334155;"></td>
+                            <td><input type="number" th:id="'mem-' + ${entry.device.id}" th:value="${entry.metrics.memoryUsage}" style="width: 70px; padding: 4px; border-radius: 4px; background: #0b0f19; color: #fff; border: 1px solid #334155;"></td>
+                            <td><input type="number" th:id="'loss-' + ${entry.device.id}" th:value="${entry.metrics.packetLossRate}" style="width: 70px; padding: 4px; border-radius: 4px; background: #0b0f19; color: #fff; border: 1px solid #334155;"></td>
+                            <td><input type="number" th:id="'lat-' + ${entry.device.id}" th:value="${entry.metrics.latencyMs}" style="width: 70px; padding: 4px; border-radius: 4px; background: #0b0f19; color: #fff; border: 1px solid #334155;"></td>
+                            <td>
+                                <button th:attr="data-device-id=${entry.device.id}" onclick="updateTelemetry(this.dataset.deviceId)" class="btn btn-primary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;">Apply</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function updateTelemetry(id) {
+            const payload = {
+                cpuUsage: parseFloat(document.getElementById(`cpu-${id}`).value),
+                memoryUsage: parseFloat(document.getElementById(`mem-${id}`).value),
+                packetLossRate: parseFloat(document.getElementById(`loss-${id}`).value),
+                latencyMs: parseFloat(document.getElementById(`lat-${id}`).value)
+            };
+
+            const res = await fetch(`/api/devices/${id}/metrics`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert(`Metrics updated for ${id}`);
+                location.reload();
+            } else {
+                alert("Failed to update telemetry.");
+            }
+        }
+    </script>
+</body>
+</html>

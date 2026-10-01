@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - RCA Diagnostics</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+    <div th:replace="~{fragments/sidebar :: sidebar(${activePage})}"></div>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <h1 class="page-title">Root Cause Analysis (RCA) Diagnostics</h1>
+            <a href="/rca" class="btn btn-primary">Re-Run Analysis</a>
+        </header>
+
+        <div class="content-container">
+            <div class="metric-card" style="border-left: 4px solid var(--accent-indigo);">
+                <span class="metric-label">Analysis Summary</span>
+                <p style="font-size: 1.1rem; margin-top: 0.5rem;" th:text="${rca.summary}"></p>
+            </div>
+
+            <div class="table-card" th:if="${!rca.probableCauses().isEmpty()}">
+                <div class="table-header">
+                    <h2>Identified Root Causes</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Root Device</th>
+                            <th>Impact & Reasoning</th>
+                            <th>Prescribed Action</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="cause : ${rca.probableCauses()}">
+                            <td><strong style="color: var(--status-critical);" th:text="${cause.deviceId}"></strong></td>
+                            <td th:text="${cause.reason}"></td>
+                            <td style="color: var(--status-healthy);" th:text="${cause.recommendedAction}"></td>
+                            <td>
+                                <span class="badge badge-critical" th:text="${#numbers.formatPercent(cause.confidenceScore, 1, 0)}"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-card">
+                <div class="table-header">
+                    <h2>Active Telemetry Alerts Triggered</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Metric</th>
+                            <th>Severity</th>
+                            <th>Alert Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <th:block th:each="entry : ${report.deviceReports().values()}">
+                            <tr th:each="alert : ${entry.alerts()}">
+                                <td><strong th:text="${alert.deviceId}"></strong></td>
+                                <td th:text="${alert.metric}"></td>
+                                <td>
+                                    <span class="badge"
+                                          th:classappend="${alert.severity.name() == 'CRITICAL' ? 'badge-critical' : 'badge-degraded'}"
+                                          th:text="${alert.severity}">
+                                    </span>
+                                </td>
+                                <td th:text="${alert.message}"></td>
+                            </tr>
+                        </th:block>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

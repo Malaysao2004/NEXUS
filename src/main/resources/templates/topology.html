@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - Network Topology</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+    <div th:replace="~{fragments/sidebar :: sidebar(${activePage})}"></div>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div>
+                <h1 class="page-title">Interactive Topology Map</h1>
+                <p class="header-subtitle">Inspect dependencies and preview service impact</p>
+            </div>
+            <button id="refresh-topology" type="button" class="btn btn-primary"><span aria-hidden="true">↻</span> Refresh</button>
+        </header>
+
+        <div class="content-container">
+            <div class="topology-workspace" th:attr="data-selected-device=${selectedDevice}">
+                <section class="topology-graph-panel" aria-label="Network topology graph">
+                    <div class="topology-toolbar">
+                        <div class="topology-map-label"><span class="live-indicator"></span><span>Network map</span><span id="topology-device-count" class="map-count">Loading</span></div>
+                        <div class="topology-legend" aria-label="Device health legend">
+                            <span><i class="legend-dot healthy"></i>Healthy</span>
+                            <span><i class="legend-dot degraded"></i>Degraded</span>
+                            <span><i class="legend-dot critical"></i>Critical</span>
+                        </div>
+                    </div>
+                    <div class="graph-stage">
+                        <div id="network-graph" role="img" aria-label="Interactive network topology"></div>
+                        <div id="graph-state" class="graph-state" data-state="loading" role="status" aria-live="polite">Loading network topology...</div>
+                    </div>
+                </section>
+
+                <aside class="impact-inspector" aria-labelledby="inspector-title">
+                    <div class="inspector-heading">
+                        <span class="eyebrow">DEVICE INSPECTOR</span>
+                        <span id="device-health" class="device-health" data-status="">Not selected</span>
+                    </div>
+                    <h2 id="inspector-title">Select a device</h2>
+                    <p id="info-node-detail" class="inspector-detail">Choose a node on the map to check its service impact.</p>
+                    <label class="inspector-select-label" for="impact-device-select">Inspect device</label>
+                    <select id="impact-device-select" class="impact-device-select" aria-label="Select a device to inspect">
+                        <option value="">Choose a device...</option>
+                    </select>
+                    <button id="preview-impact" type="button" class="btn btn-primary impact-action" disabled>
+                        <span aria-hidden="true">⌁</span> Preview outage impact
+                    </button>
+                    <div id="impact-feedback" class="impact-feedback" data-state="neutral" role="status" aria-live="polite">
+                        <p id="impact-message">The preview is read-only. It does not change telemetry or device state.</p>
+                        <ul id="impact-device-list" class="impact-device-list" hidden></ul>
+                    </div>
+                    <p class="inspector-footnote">Impact is calculated from gateway reachability with the selected device removed from the path.</p>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let networkInstance;
+        let graphNodes;
+        let baseNodeColors = new Map();
+        let selectedDeviceId;
+
+        const statusColors = {
+            HEALTHY: { background: '#0f766e', border: '#2dd4bf' },
+            DEGRADED: { background: '#92400e', border: '#fbbf24' },
+            CRITICAL: { background: '#991b1b', border: '#fb7185' }
+        };
+        const graphState = document.getElementById('graph-state');
+        const previewButton = document.getElementById('preview-impact');
+        const deviceSelect = document.getElementById('impact-device-select');
+        const impactFeedback = document.getElementById('impact-feedback');
+        const impactMessage = document.getElementById('impact-message');
+        const impactList = document.getElementById('impact-device-list');
+
+        function setGraphState(state, message) {
+            graphState.dataset.state = state;
+            graphState.textContent = message;
+            graphState.hidden = !message;
+        }
+
+        function setImpactState(state, message) {
+            impactFeedback.dataset.state = state;
+            impactMessage.textContent = message;
+        }
+
+        function resetImpactHighlight() {
+            if (!graphNodes) return;
+            graphNodes.update([...baseNodeColors].map(([id, color]) => ({ id, color })));
+        }
+
+        function selectDevice(deviceId) {
+            const node = graphNodes.get(deviceId);
+            if (!node) return;
+
+            resetImpactHighlight();
+            selectedDeviceId = deviceId;
+            deviceSelect.value = deviceId;
+            document.getElementById('inspector-title').textContent = node.label.split('\n')[0];
+            document.getElementById('info-node-detail').textContent = `${node.group} · ${node.status} · ${deviceId}`;
+            const health = document.getElementById('device-health');
+            health.textContent = node.status;
+            health.dataset.status = node.status;
+            previewButton.disabled = false;
+            previewButton.innerHTML = '<span aria-hidden="true">⌁</span> Preview outage impact';
+            impactList.replaceChildren();
+            impactList.hidden = true;
+            setImpactState('neutral', 'Preview is read-only. It does not change telemetry or device state.');
+        }
+
+        function clearSelection() {
+            resetImpactHighlight();
+            selectedDeviceId = undefined;
+            deviceSelect.value = '';
+            document.getElementById('inspector-title').textContent = 'Select a device';
+            document.getElementById('info-node-detail').textContent = 'Choose a node on the map to check its service impact.';
+            const health = document.getElementById('device-health');
+            health.textContent = 'Not selected';
+            health.dataset.status = '';
+            previewButton.disabled = true;
+            impactList.replaceChildren();
+            impactList.hidden = true;
+            setImpactState('neutral', 'The preview is read-only. It does not change telemetry or device state.');
+        }
+
+        async function previewImpact() {
+            if (!selectedDeviceId) return;
+
+            previewButton.disabled = true;
+            previewButton.textContent = 'Calculating impact...';
+            impactList.replaceChildren();
+            impactList.hidden = true;
+            setImpactState('loading', 'Checking remaining paths from the gateway...');
+
+            try {
+                const response = await fetch(`/api/impact-preview/${encodeURIComponent(selectedDeviceId)}`);
+                if (!response.ok) {
+                    throw new Error(response.status === 404 ? 'This device is no longer in the topology.' : 'Impact preview is unavailable. Check that the topology has a gateway.');
+                }
+
+                const preview = await response.json();
+                resetImpactHighlight();
+                graphNodes.update({ id: preview.failedDeviceId, color: { background: '#78350f', border: '#f97316' } });
+
+                if (preview.impactedCount === 0) {
+                    setImpactState('success', 'No other devices lose gateway reachability. Redundant paths preserve connectivity.');
+                } else {
+                    setImpactState('warning', `${preview.impactedCount} ${preview.impactedCount === 1 ? 'device would' : 'devices would'} lose gateway reachability if ${preview.failedDeviceName} failed.`);
+                    preview.impactedDevices.forEach(device => {
+                        const item = document.createElement('li');
+                        item.className = 'impact-device';
+                        item.style.setProperty('--impact-color', device.status === 'CRITICAL' ? 'var(--status-critical)' : 'var(--status-degraded)');
+                        const name = document.createElement('strong');
+                        name.textContent = device.name;
+                        const detail = document.createElement('span');
+                        detail.textContent = `${device.id} · ${device.role} · ${device.status}`;
+                        item.append(name, detail);
+                        impactList.append(item);
+                    });
+                    impactList.hidden = false;
+                    graphNodes.update(preview.impactedDevices.map(device => ({
+                        id: device.id,
+                        color: { background: '#7f1d1d', border: '#fb7185' }
+                    })));
+                }
+            } catch (error) {
+                setImpactState('error', error.message || 'Could not calculate impact. Try again.');
+            } finally {
+                previewButton.disabled = false;
+                previewButton.innerHTML = '<span aria-hidden="true">⌁</span> Preview outage impact';
+            }
+        }
+
+        async function fetchGraphData() {
+            const refreshButton = document.getElementById('refresh-topology');
+            refreshButton.disabled = true;
+            setGraphState('loading', 'Loading network topology...');
+
+            try {
+                if (typeof vis === 'undefined') throw new Error('The topology graph library could not be loaded. Check your connection and retry.');
+                const response = await fetch('/api/graph-data');
+                if (!response.ok) throw new Error(`Topology request failed (${response.status}).`);
+                const data = await response.json();
+                if (!data.nodes.length) {
+                    document.getElementById('topology-device-count').textContent = '0 devices';
+                    setGraphState('empty', 'No devices are registered in this topology yet.');
+                    return;
+                }
+
+                const nodes = data.nodes.map(node => ({
+                    id: node.id,
+                    label: node.label,
+                    group: node.group,
+                    status: node.status,
+                    shape: 'box',
+                    margin: 12,
+                    borderWidth: 1,
+                    color: statusColors[node.status] || statusColors.HEALTHY,
+                    font: { color: '#f8fafc', size: 13, face: 'Segoe UI' }
+                }));
+                deviceSelect.replaceChildren(new Option('Choose a device...', ''));
+                nodes.forEach(node => deviceSelect.add(new Option(`${node.label.split('\n')[0]} · ${node.id}`, node.id)));
+                const edges = data.edges.map(edge => ({
+                    from: edge.from,
+                    to: edge.to,
+                    color: { color: '#475569', highlight: '#818cf8' },
+                    width: 1.5
+                }));
+
+                baseNodeColors = new Map(nodes.map(node => [node.id, node.color]));
+                graphNodes = new vis.DataSet(nodes);
+                if (networkInstance) networkInstance.destroy();
+                networkInstance = new vis.Network(document.getElementById('network-graph'), {
+                    nodes: graphNodes,
+                    edges: new vis.DataSet(edges)
+                }, {
+                    physics: { stabilization: { iterations: 150 }, barnesHut: { springLength: 135 } },
+                    interaction: { hover: true, keyboard: { enabled: true, bindToWindow: false } },
+                    edges: { smooth: { type: 'continuous' } }
+                });
+                document.getElementById('topology-device-count').textContent = `${nodes.length} devices · ${edges.length} links`;
+                setGraphState('', '');
+                networkInstance.on('click', event => {
+                    if (event.nodes.length) selectDevice(event.nodes[0]);
+                    else clearSelection();
+                });
+
+                const requestedDevice = document.querySelector('.topology-workspace').dataset.selectedDevice;
+                if (requestedDevice && graphNodes.get(requestedDevice)) {
+                    networkInstance.selectNodes([requestedDevice]);
+                    selectDevice(requestedDevice);
+                    await previewImpact();
+                }
+            } catch (error) {
+                setGraphState('error', error.message || 'Could not load the topology. Retry in a moment.');
+            } finally {
+                refreshButton.disabled = false;
+            }
+        }
+
+        document.getElementById('refresh-topology').addEventListener('click', fetchGraphData);
+        previewButton.addEventListener('click', previewImpact);
+        deviceSelect.addEventListener('change', () => {
+            if (!deviceSelect.value) {
+                clearSelection();
+                return;
+            }
+            networkInstance.selectNodes([deviceSelect.value]);
+            selectDevice(deviceSelect.value);
+        });
+        window.addEventListener('DOMContentLoaded', fetchGraphData);
+    </script>
+</body>
+</html>

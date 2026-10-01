@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<aside th:fragment="sidebar(activePage)" class="sidebar">
+    <div class="brand">
+        <span class="brand-badge" aria-hidden="true">NX</span>
+        <span class="brand-copy">
+            <span class="brand-name">NEXUS</span>
+            <span class="brand-tagline">everything connected</span>
+        </span>
+    </div>
+    <ul class="nav-links">
+        <li class="nav-item" th:classappend="${activePage == 'dashboard' ? 'active' : ''}">
+            <a href="/dashboard"><span>📊</span> Dashboard</a>
+        </li>
+        <li class="nav-item" th:classappend="${activePage == 'topology' ? 'active' : ''}">
+            <a href="/topology"><span>🕸️</span> Topology Map</a>
+        </li>
+        <li class="nav-item" th:classappend="${activePage == 'devices' ? 'active' : ''}">
+            <a href="/devices"><span>🖥️</span> Device Manager</a>
+        </li>
+        <li class="nav-item" th:classappend="${activePage == 'rca' ? 'active' : ''}">
+            <a href="/rca"><span>🔍</span> RCA Diagnostics</a>
+        </li>
+        <li class="nav-item" th:classappend="${activePage == 'simulator' ? 'active' : ''}">
+            <a href="/simulator"><span>⚡</span> Fault Simulator</a>
+        </li>
+    </ul>
+</aside>
+</html>

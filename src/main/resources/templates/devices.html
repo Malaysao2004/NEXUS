@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - Device Inventory</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+    <div th:replace="~{fragments/sidebar :: sidebar(${activePage})}"></div>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <h1 class="page-title">Device Inventory & Management</h1>
+            <button onclick="toggleModal(true)" class="btn btn-primary">+ Add New Device</button>
+        </header>
+
+        <div class="content-container">
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Host / Name</th>
+                            <th>Role Tier</th>
+                            <th>Status</th>
+                            <th>CPU</th>
+                            <th>Packet Loss</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${report.deviceReports().values()}">
+                            <td><strong th:text="${entry.device.id}"></strong></td>
+                            <td th:text="${entry.device.name}"></td>
+                            <td th:text="${entry.device.role}"></td>
+                            <td>
+                                <span class="badge" 
+                                      th:classappend="${entry.status.name() == 'HEALTHY' ? 'badge-healthy' : (entry.status.name() == 'DEGRADED' ? 'badge-degraded' : 'badge-critical')}"
+                                      th:text="${entry.status}">
+                                </span>
+                            </td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.cpuUsage, 1, 1) + '%'}"></td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.packetLossRate, 1, 1) + '%'}"></td>
+                            <td>
+                                <button th:attr="data-device-id=${entry.device.id}" onclick="deleteDevice(this.dataset.deviceId)" class="btn btn-danger" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;">Delete</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div id="deviceModal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 style="margin-bottom: 1.25rem;">Register Network Device</h2>
+            <form id="deviceForm">
+                <div class="form-group">
+                    <label>Device ID</label>
+                    <input type="text" id="devId" placeholder="e.g. edge-router-01" required>
+                </div>
+                <div class="form-group">
+                    <label>Device Name</label>
+                    <input type="text" id="devName" placeholder="e.g. Edge Gateway North" required>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="devRole">
+                        <option value="CORE">CORE</option>
+                        <option value="AGGREGATION">AGGREGATION</option>
+                        <option value="ACCESS" selected>ACCESS</option>
+                        <option value="EDGE">EDGE</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Connect to Existing Neighbor (ID)</label>
+                    <input type="text" id="devNeighbor" placeholder="e.g. core-1">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem;">
+                    <button type="button" onclick="toggleModal(false)" class="btn" style="background: var(--bg-hover);">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleModal(open) {
+            document.getElementById('deviceModal').style.display = open ? 'flex' : 'none';
+        }
+
+        document.getElementById('deviceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const neighborVal = document.getElementById('devNeighbor').value.trim();
+            const payload = {
+                id: document.getElementById('devId').value.trim(),
+                name: document.getElementById('devName').value.trim(),
+                role: document.getElementById('devRole').value,
+                neighbors: neighborVal ? [neighborVal] : []
+            };
+
+            const res = await fetch('/api/devices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                location.reload();
+            } else {
+                alert("Failed to save device. Verify unique ID.");
+            }
+        });
+
+        async function deleteDevice(id) {
+            if (!confirm(`Are you sure you want to remove device ${id}?`)) return;
+            const res = await fetch(`/api/devices/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                location.reload();
+            } else {
+                alert("Failed to delete device.");
+            }
+        }
+    </script>
+</body>
+</html>

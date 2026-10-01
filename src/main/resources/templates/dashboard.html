@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS - Observability Dashboard</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+    <div th:replace="~{fragments/sidebar :: sidebar(${activePage})}"></div>
+
+    <div class="main-wrapper">
+        <header class="top-header">
+            <h1 class="page-title">Network Observability Overview</h1>
+            <a href="/simulator" class="btn btn-primary">Simulate Traffic / Faults</a>
+        </header>
+
+        <div class="content-container">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">Total Monitored Devices</span>
+                    <span class="metric-value" th:text="${deviceCount}">0</span>
+                </div>
+                <div class="metric-card" style="border-top: 3px solid var(--status-healthy);">
+                    <span class="metric-label">Healthy</span>
+                    <span class="metric-value" style="color: var(--status-healthy);" th:text="${report.healthyCount}">0</span>
+                </div>
+                <div class="metric-card" style="border-top: 3px solid var(--status-degraded);">
+                    <span class="metric-label">Degraded</span>
+                    <span class="metric-value" style="color: var(--status-degraded);" th:text="${report.degradedCount}">0</span>
+                </div>
+                <div class="metric-card" style="border-top: 3px solid var(--status-critical);">
+                    <span class="metric-label">Critical Alerts</span>
+                    <span class="metric-value" style="color: var(--status-critical);" th:text="${report.criticalCount}">0</span>
+                </div>
+            </div>
+
+            <!-- Root Cause Highlight -->
+            <div class="table-card" th:if="${!rca.probableCauses().isEmpty()}">
+                <div class="table-header" style="background: rgba(239, 68, 68, 0.1);">
+                    <h2 style="color: var(--status-critical); font-size: 1rem;">⚠️ Urgent: Root Cause Alerts Detected</h2>
+                    <a href="/rca" class="btn btn-danger" style="font-size: 0.8rem;">View Full RCA</a>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>Diagnosis</th>
+                            <th>Recommended Remediation</th>
+                            <th>Confidence</th>
+                            <th>Failure Preview</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="cause : ${rca.probableCauses()}">
+                            <td style="font-weight: 600;" th:text="${cause.deviceId}"></td>
+                            <td th:text="${cause.reason}"></td>
+                            <td th:text="${cause.recommendedAction}"></td>
+                            <td><span class="badge badge-critical" th:text="${#numbers.formatPercent(cause.confidenceScore, 1, 0)}"></span></td>
+                            <td><a class="text-link" th:href="@{/topology(device=${cause.deviceId})}">Preview impact <span aria-hidden="true">→</span></a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Quick Telemetry Feed -->
+            <div class="table-card">
+                <div class="table-header">
+                    <h2>Live Device Telemetry Snapshot</h2>
+                    <a href="/devices" class="btn btn-primary" style="font-size: 0.8rem;">Manage Inventory</a>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Role</th>
+                            <th>Health State</th>
+                            <th>CPU Load</th>
+                            <th>Memory</th>
+                            <th>Packet Loss</th>
+                            <th>Latency</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="entry : ${report.deviceReports().values()}">
+                            <td>
+                                <strong th:text="${entry.device.name}"></strong><br>
+                                <small style="color: var(--text-secondary);" th:text="${entry.device.id}"></small>
+                            </td>
+                            <td th:text="${entry.device.role}"></td>
+                            <td>
+                                <span class="badge" 
+                                      th:classappend="${entry.status.name() == 'HEALTHY' ? 'badge-healthy' : (entry.status.name() == 'DEGRADED' ? 'badge-degraded' : 'badge-critical')}"
+                                      th:text="${entry.status}">
+                                </span>
+                            </td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.cpuUsage, 1, 1) + '%'}"></td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.memoryUsage, 1, 1) + '%'}"></td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.packetLossRate, 1, 1) + '%'}"></td>
+                            <td th:text="${#numbers.formatDecimal(entry.metrics.latencyMs, 1, 1) + ' ms'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
