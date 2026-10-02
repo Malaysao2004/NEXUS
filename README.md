@@ -8,9 +8,9 @@ It combines a synthetic network topology, live-like telemetry simulation, health
 
 ## Demo
 
-![NEXUS dashboard overview](docs/demo-nexus-dashboard.png)
+![NEXUS dashboard overview](docs/photo1.png)
 
-![NEXUS topology and impact view](docs/nexus-topology-demo.png)
+![NEXUS topology and impact view](docs/photo2.png)
 
 Local preview:
 
