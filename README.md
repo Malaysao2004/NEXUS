@@ -2,46 +2,55 @@
 
 > everything connected
 
-NEXUS is a Java + Spring Boot observability dashboard for network operations teams. It models a synthetic topology, monitors device health in real time, simulates faults, and highlights outage impact before escalation.
+NEXUS is a Java + Spring Boot network observability dashboard designed for operations teams who need fast visibility into topology health, service impact, and incident-driven decision making.
 
-Built for fast operational insight, clear RCA guidance, and clean visual decision support in one place.
+It combines a synthetic network topology, live-like telemetry simulation, health scoring, and outage impact analysis into a single operational workspace.
 
 ## Demo
 
 ![NEXUS dashboard overview](docs/demo-nexus-dashboard.png)
 
-### Demo gallery
+![NEXUS topology and impact view](docs/nexus-topology-demo.png)
 
-![NEXUS topology view](docs/nexus-topology-demo.png)
+Local preview:
 
-A live preview of the dashboard is available at:
 - http://127.0.0.1:5000
 
 ## Why NEXUS
 
-- Network health at a glance: device count, healthy/degraded/critical breakdowns, and alert trends
-- Topology-aware intelligence: graph-based reachability and dependency analysis
-- Fault simulation: realistic network scenarios such as congestion, packet loss, and fiber cuts
-- RCA support: identifies critical devices and recommended actions based on role and impact
-- Clean operational UI: built with Spring MVC + Thymeleaf and a modern dark observability aesthetic
+Modern networks are not just a list of devices — they are connected systems where one failure can cascade into multiple outages. NEXUS helps teams answer three questions quickly:
 
-## Core features
+- Is the network healthy right now?
+- Which device or dependency is driving the issue?
+- What will break next if the problem spreads?
 
-- Full topology visualization with device-level inspection
-- Health scoring based on packet loss, latency, and CPU thresholds
-- Impact preview for outages and cascading failures
-- Scenario-driven simulation engine for operational drills
-- CLI and web entry points for analysis and monitoring workflows
+## Core capabilities
+
+- Live-style dashboard for overall network health
+- Device and link monitoring using synthetic telemetry
+- Topology visualization with dependency-aware graph views
+- Outage impact preview before escalation
+- Scenario-based fault simulation for training and drills
+- Root-cause analysis with operational recommendations
+- CLI and web access for both technical and executive workflows
+
+## What makes it useful
+
+- Health scoring based on latency, packet loss, and CPU behavior
+- Graph-based dependency awareness across connected devices
+- Operational simulation of events like congestion, packet loss, and fiber cuts
+- Clear, modern UI built for quick analysis during incidents
+- Lightweight architecture that runs fully in memory without external infrastructure
 
 ## Architecture
 
-NEXUS uses an in-memory model to represent devices, telemetry, health states, and topology links.
+NEXUS follows a compact in-memory model for observability and root-cause analysis.
 
-- Topology graph: devices and neighbor relationships
-- Telemetry engine: synthetic metric generation and device state tracking
-- Health evaluation: status thresholds for degraded and critical events
-- RCA model: root-cause reasoning based on device criticality and connectivity
-- Web layer: dashboard, topology, simulator, and device APIs
+- Topology layer: device graph and adjacency logic
+- Telemetry engine: synthetic metric generation and state tracking
+- Health evaluation: device statuses based on thresholds and severity rules
+- RCA logic: identifies critical dependencies and likely impact paths
+- Web layer: dashboard, topology pages, simulator, and REST endpoints
 
 ## Tech stack
 
@@ -64,7 +73,7 @@ NEXUS uses an in-memory model to represent devices, telemetry, health states, an
 mvn clean test
 ```
 
-### 2) Run the app
+### 2) Run the application
 
 ```bash
 mvn spring-boot:run
@@ -78,14 +87,14 @@ http://127.0.0.1:5000
 
 ### 3) Simulate a fault
 
-Available scenarios:
+Supported scenarios include:
 
 - `NORMAL`
 - `CORE_CONGESTION`
 - `EDGE_PACKET_LOSS`
 - `FIBER_CUT_SIMULATION`
 
-You can trigger scenarios from the UI, or via the API:
+Trigger from the UI or through the API:
 
 ```bash
 curl -X POST http://127.0.0.1:5000/api/simulate/CORE_CONGESTION
@@ -95,13 +104,13 @@ curl -X POST http://127.0.0.1:5000/api/simulate/CORE_CONGESTION
 
 ```text
 src/main/java/com/tracewise/
-  cli/        CLI-driven scenario and analysis flows
-  health/     HealthEngine, status calculations
-  rca/        Root-cause analysis and action guidance
-  simulator/  Fault simulation runner and scenario definitions
-  telemetry/  Metric generation and device telemetry state
-  topology/   Graph model, topology loader, validation logic
-  web/        Controller layer and dashboard APIs
+  cli/        CLI analysis and operational workflows
+  health/     HealthEngine and status evaluation
+  rca/        Root-cause analysis and recommended actions
+  simulator/  Fault simulation and scenario runners
+  telemetry/  Telemetry generation and device metrics
+  topology/   Graph model, topology loader, topology logic
+  web/        Controllers and dashboard APIs
 
 src/main/resources/
   application.properties
@@ -110,31 +119,30 @@ src/main/resources/
   templates/
 
 src/test/java/
-  JUnit tests covering topology, health, RCA, and web flows
+  JUnit coverage for topology, health, RCA, and web behavior
 ```
 
-## Operational logic
+## Operational flow
 
-- Topology links are modeled as undirected relationships for realistic graph traversal.
-- Health thresholds include packet loss, latency, and CPU monitor rules.
-- RCA surfaces critical nodes and identifies likely failure propagation paths.
-- Synthetic baseline data is pre-seeded for consistent demo behavior and repeatable testing.
+- Devices are modeled with connectivity and role-based impact behavior.
+- Health logic evaluates degraded or critical states based on telemetry thresholds.
+- Topology traversal helps identify indirect impact beyond a single failing node.
+- RCA highlights likely root causes and actionable next steps for operations teams.
 
 ## Verification
 
-This project is validated with Maven:
+The project is verified with Maven using:
 
 ```bash
 mvn clean test
 ```
 
-Current verification status: BUILD SUCCESS with 22 tests passing, 0 failures, 0 errors.
+Current result: BUILD SUCCESS with 22 tests passing, 0 failures, and 0 errors.
+
+## GitHub
+
+- Repository: https://github.com/Malaysao2004/NEXUS
 
 ## License
 
-This project is intended for demo, learning, and internal operational visualization use.
-
-## Contact / repo
-
-- GitHub: https://github.com/Malaysao2004/NEXUS
-- Project focus: network observability, incident response, and simulation-driven ops intelligence
+This project is intended for demo, learning, and operational visualization use.
